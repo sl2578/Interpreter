@@ -32,6 +32,6 @@ let fold_left_imp f acc xs =
 
 type t = unit  (* TODO: change unit to whatever you want *)
 type u = unit  (* TODO: change unit to whatever you want *)
-let lst : t list = failwith "TODO"
+(* let lst : t list = failwith "TODO"
 let zardoz (x:t) : u = failwith "TODO"
-
+ *)
