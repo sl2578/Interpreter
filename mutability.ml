@@ -27,11 +27,15 @@ let fold_left_imp f acc xs =
 	let xs = Array.of_list xs in
 	(* loop through the list *)
 	for i = 0 to ((Array.length xs) - 1) do
-		acc := f !acc xs.(i)
+		acc:=f !acc xs.(i)
 	done; !acc (* return final value of acc *)
 
-type t = unit  (* TODO: change unit to whatever you want *)
-type u = unit  (* TODO: change unit to whatever you want *)
-(* let lst : t list = failwith "TODO"
-let zardoz (x:t) : u = failwith "TODO"
- *)
+(* we want List.map zardoz (List.rev lst) != List.rev (List.map zardoz lst)
+	[f x3; f x2; f x1] = rev [f x1; f x2; f x3 ]
+*)
+type t = int
+type u = int
+let lst : t list = [1; 2; 3]
+let zardoz (x: t) : u =
+	let acc = ref 1
+		in (fun x -> )
