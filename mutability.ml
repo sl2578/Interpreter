@@ -30,12 +30,8 @@ let fold_left_imp f acc xs =
 		acc:=f !acc xs.(i)
 	done; !acc (* return final value of acc *)
 
-(* we want List.map zardoz (List.rev lst) != List.rev (List.map zardoz lst)
-	[f x3; f x2; f x1] = rev [f x1; f x2; f x3 ]
-*)
-type t = int
+(* List.map zardoz (List.rev lst) != List.rev (List.map zardoz lst) *)
+type t = int ref
 type u = int
-let lst : t list = [1; 2; 3]
-let zardoz (x: t) : u =
-	let acc = ref 1
-		in (fun x -> )
+let lst : t list = [ref 1; ref 2; ref 3]
+let zardoz (x: t) : u = x:= (!x)*(!x); !x
