@@ -22,11 +22,21 @@ module type LIST_ITERATOR = sig
   val create: 'a list -> 'a t
 end
 
-(* TODO:
 module ListIterator : LIST_ITERATOR = struct
-  ...
+  type 'a t = 'a list ref
+  exception NoResult
+
+  let has_next (lst: 'a t) : bool = (List.length !lst) > 0
+
+  let next (lst: 'a t) : 'a =
+    match !lst with 
+    | [] -> raise NoResult
+    | h::t -> lst := t; h
+
+  let create (l: 'a list) = ref l
+
 end
-*)
+
 
 type 'a tree = Leaf | Node of ('a * 'a tree * 'a tree)
 
