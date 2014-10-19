@@ -28,3 +28,9 @@ TEST_UNIT "TakeIterator_test3" = assert_true (Iter.has_next iter4 = false)
 TEST_UNIT "TakeIterator_test4" = assert_true (Iter.next iter2 = 1)
 TEST_UNIT "TakeIterator_test5" = assert_true (Iter.next iter2 = 2)
 TEST_UNIT "TakeIterator_test6" = assert_raises (Some NoResult) Iter.next iter2
+
+module UtilsIter = IteratorUtilsFn (ListIterator)
+let iter = ListIterator.create [1;2;3;4]
+UtilsIter.advance 1 iter
+TEST_UNIT "IteratorUtilsFn_test1" = assert_true (ListIterator.next iter = 2)
+TEST_UNIT "IteratorUtilsFn_test2" = assert_true (UtilsIter.fold (fun x y -> x+y) 0 iter = 7)

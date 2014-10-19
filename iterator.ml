@@ -80,6 +80,8 @@ module type TAKE_ITERATOR = functor (I: ITERATOR) -> sig
 end
 
 module TakeIterator : TAKE_ITERATOR = functor (I : ITERATOR) -> struct
+  (* tuple of iterator and int, where int is the n number
+  of times iterator can still return a result *)
   type 'a t = ('a I.t * int) ref
   exception NoResult
 
@@ -114,6 +116,7 @@ module IteratorUtilsFn (I : ITERATOR) = struct
     else acc
 end
 
+
 module type RANGE_ITERATOR = functor (I : ITERATOR) -> sig
   include ITERATOR
 
@@ -127,8 +130,23 @@ module type RANGE_ITERATOR = functor (I : ITERATOR) -> sig
   val create : int -> int -> 'a I.t -> 'a t
 end
 
-(* TODO:
 module RangeIterator : RANGE_ITERATOR = functor (I : ITERATOR) -> struct
-  ...
+  (* tuple of iterator and int, where int is the n number
+  of times iterator can still return a result *)
+  type 'a t = ('a I.t * int) ref
+  raise NoResult
+
+  module takeIter = TakeIterator (I)
+  let has_next (i: 'a t) = takeIter.has_next i
+
+  let next (i: 'a t) = takeIter.next i
+
+  module Utils = IteratorUtilsFn (I)
+  let create (n: int) (m: int) (iter: 'a I.t) : 'a t =
+    Utils.advance n iter;
+    (* iter is now at nth element,
+    with m-n more elements left to iter through *)
+    ref (iter, m-n)
+
 end
-*)
+
