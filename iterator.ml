@@ -84,9 +84,7 @@ module TakeIterator : TAKE_ITERATOR = functor (I : ITERATOR) -> struct
   exception NoResult
 
   let has_next (i: 'a t) = I.has_next (fst !i) && (snd !i) <> 0
-(*     match !i with
-    | iter, n -> (n <> 0) && (I.has_next iter)
- *)
+
   let next (i: 'a t) =
     match !i with
     | iter, 0 -> raise NoResult
@@ -102,14 +100,18 @@ module IteratorUtilsFn (I : ITERATOR) = struct
   (* effects: causes i to yield n results, ignoring
    *   those results.  Raises NoResult if i does.  *)
   let advance (n: int) (iter: 'a I.t) : unit =
-    failwith "Not implemented"
+    for i=n downto 1 do
+      I.next iter
+    done
 
   (* returns: the final value of the accumulator after
    *   folding f over all the results returned by i,
    *   starting with acc as the initial accumulator.
    * effects: causes i to yield all its results. *)
   let rec fold (f : ('a -> 'b -> 'a)) (acc : 'a) (iter: 'b I.t) : 'a =
-    failwith "Not implemented"
+    if I.has_next iter then
+      fold f (f acc (I.next iter)) iter
+    else acc
 end
 
 module type RANGE_ITERATOR = functor (I : ITERATOR) -> sig
