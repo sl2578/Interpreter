@@ -13,6 +13,7 @@ module type ITERATOR = sig
   val next: 'a t -> 'a
 end
 
+
 module type LIST_ITERATOR = sig
   include ITERATOR
   (* parameters:  a list l
@@ -48,11 +49,25 @@ module type INORDER_TREE_ITERATOR = sig
   val create: 'a tree -> 'a t
 end
 
-(* TODO:
 module InorderTreeIterator : INORDER_TREE_ITERATOR = struct
-  ...
+  type 'a t = 'a list ref
+  exception NoResult
+
+  let has_next (l: 'a t) : bool = List.length !l > 0
+
+  let next (l: 'a t) : 'a =
+    match !l with
+    | [] -> raise NoResult
+    | h::t -> l := t; h
+
+  let create (tr : 'a tree) : 'a t =
+    let rec traverse (tr: 'a tree) : 'a list =
+      match tr with
+      | Leaf -> []
+      | Node (v, l, r) -> (traverse l)@[v]@(traverse r) in
+    ref (traverse tr)
 end
-*)
+
 
 module type TAKE_ITERATOR = functor (I: ITERATOR) -> sig
   include ITERATOR
@@ -64,11 +79,22 @@ module type TAKE_ITERATOR = functor (I: ITERATOR) -> sig
   val create: int -> 'a I.t -> 'a t
 end
 
-(* TODO:
 module TakeIterator : TAKE_ITERATOR = functor (I : ITERATOR) -> struct
-  ...
+  type 'a t = ('a I.t * int) ref
+  exception NoResult
+
+  let has_next (i: 'a t) = I.has_next (fst !i) && (snd !i) <> 0
+(*     match !i with
+    | iter, n -> (n <> 0) && (I.has_next iter)
+ *)
+  let next (i: 'a t) =
+    match !i with
+    | iter, 0 -> raise NoResult
+    | iter, n -> let res = I.next iter in i:= (iter, n-1); res
+
+  let create (n: int) (iter: 'a I.t) : 'a t = ref (iter, n)
 end
-*)
+
 
 module IteratorUtilsFn (I : ITERATOR) = struct
   open I
