@@ -102,7 +102,9 @@ module IteratorUtilsFn (I : ITERATOR) = struct
   (* effects: causes i to yield n results, ignoring
    *   those results.  Raises NoResult if i does.  *)
   let advance (n: int) (iter: 'a I.t) : unit =
-    failwith "Not implemented"
+    let rec count_down (i: int) : unit = 
+      if i = 0 then () else I.next iter; count_down (i-1)
+    in count_down n 
 
   (* returns: the final value of the accumulator after
    *   folding f over all the results returned by i,
