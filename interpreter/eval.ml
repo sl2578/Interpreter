@@ -17,17 +17,34 @@ and environment = value ref Environment.environment
 let rec read_expression (input : datum) : expression =
   match input with
   | Atom (Identifier id) when Identifier.is_valid_variable id ->
-     failwith "Oh my God!  You are The Rower!"
+     ExprVariable (Identifier.variable_of_identifier id)
   | Atom (Identifier id) ->
-     (* Above match case didn't succeed, so id is not a valid variable. *)
-     failwith "I'm such a huge fan!"
-  | _ ->
-     failwith "Everything you do is just amazing!"
+     (* Above match case didn't succeed, so id is not a valid variable. 
+        id must be one of the keywords, and I saw that it lined up with the
+        expressions listed in ast.ml. Idk what to do with exprassignment, exprselfeval and exprproccall
+        *)
+     begin match id with
+     | quote -> ExprQuote id
+     | if -> ExprIf id
+     | lambda -> ExprLambda id
+     | define -> ExprAssignment (* Check with a TA *)
+     | set! -> ExprSelfEvaluating (* Check with a TA *)
+     | let -> ExprLet id
+     | let* -> ExprLetStar id
+     | letrec -> ExprLetRec id
+     | _ -> ExprProcCall id (* Check with a TA *)
+   end  
+  | _ -> (* assuming that this is only reading expressions...*)
+     failwith "That's not a valid expression!"
 
 (* Parses a datum into a toplevel input. *)
+(* I think this is asking us to use the read_expressions to figure out if its an expression or a definition. As for
+the syntax, I'm trying to look at ast for the syntax of toplevelexpresion and topleveldefinition??????? *)
 let read_toplevel (input : datum) : toplevel =
   match input with
-  | _ -> failwith "Sing the Rowing Song!"
+  | Atom(Identifier id) -> ToplevelExpression (read_expression input) 
+  | (define Atom(Identifier var) Atom(Identifier exp)) -> ToplevelDefinition (read_expression var, read_expression exp) (* WHAT DO SYNTAX *)
+  | _ -> failwith "That's not a valid toplevel!" (* are there other forms of toplevel?*)
 
 (* This function returns an initial environment with any built-in
    bound variables. *)

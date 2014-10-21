@@ -80,13 +80,13 @@ module type TAKE_ITERATOR = functor (I: ITERATOR) -> sig
 end
 
 module TakeIterator : TAKE_ITERATOR = functor (I : ITERATOR) -> struct
+  (* tuple of iterator and int, where int is the n number
+  of times iterator can still return a result *)
   type 'a t = ('a I.t * int) ref
   exception NoResult
 
   let has_next (i: 'a t) = I.has_next (fst !i) && (snd !i) <> 0
-(*     match !i with
-    | iter, n -> (n <> 0) && (I.has_next iter)
- *)
+
   let next (i: 'a t) =
     match !i with
     | iter, 0 -> raise NoResult
@@ -102,17 +102,20 @@ module IteratorUtilsFn (I : ITERATOR) = struct
   (* effects: causes i to yield n results, ignoring
    *   those results.  Raises NoResult if i does.  *)
   let advance (n: int) (iter: 'a I.t) : unit =
-    let rec count_down (i: int) : unit = 
-      if i = 0 then () else I.next iter; count_down (i-1)
-    in count_down n 
+    for i=n downto 1 do
+      I.next iter
+    done
 
   (* returns: the final value of the accumulator after
    *   folding f over all the results returned by i,
    *   starting with acc as the initial accumulator.
    * effects: causes i to yield all its results. *)
   let rec fold (f : ('a -> 'b -> 'a)) (acc : 'a) (iter: 'b I.t) : 'a =
-    failwith "Not implemented"
+    if I.has_next iter then
+      fold f (f acc (I.next iter)) iter
+    else acc
 end
+
 
 module type RANGE_ITERATOR = functor (I : ITERATOR) -> sig
   include ITERATOR
@@ -127,8 +130,23 @@ module type RANGE_ITERATOR = functor (I : ITERATOR) -> sig
   val create : int -> int -> 'a I.t -> 'a t
 end
 
-(* TODO:
 module RangeIterator : RANGE_ITERATOR = functor (I : ITERATOR) -> struct
-  ...
+  (* tuple of iterator and int, where int is the n number
+  of times iterator can still return a result *)
+  type 'a t = ('a I.t * int) ref
+  raise NoResult
+
+module TakeIter : TakeIterator = functor (I:ITERATOR) -> struct
+  let has_next (i: 'a t) = I.has_next i
+
+  let next (i: 'a t) = I.next i
 end
-*)
+
+module Utils : IteratorUtilsFn = functor (I:ITERATOR) -> struct
+  let create (n: int) (m: int) (iter: 'a I.t) : 'a t =
+    I.advance n iter;
+    (* iter is now at nth element,
+    with m-n more elements left to iter through *)
+    ref (iter, m-n)
+end
+

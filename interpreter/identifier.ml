@@ -1,4 +1,4 @@
-(* Functions for dealing with identifiers. *)
+(* Functions for dealing witvh identifiers. *)
 
 (* identifier has the representation invariant that it contains no uppercase
    characters.  *)
