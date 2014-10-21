@@ -19,23 +19,22 @@ let rec read_expression (input : datum) : expression =
   | Atom (Identifier id) when Identifier.is_valid_variable id ->
      ExprVariable (Identifier.variable_of_identifier id)
   | Atom (Identifier id) ->
-     (* Above match case didn't succeed, so id is not a valid variable. 
-        id must be one of the keywords, and I saw that it lined up with the
-        expressions listed in ast.ml. Idk what to do with exprassignment, exprselfeval and exprproccall
-        *)
      begin match id with
-     | quote -> ExprQuote id
-     | if -> ExprIf id
-     | lambda -> ExprLambda id
-     | define -> ExprAssignment (* Check with a TA *)
-     | set! -> ExprSelfEvaluating (* Check with a TA *)
-     | let -> ExprLet id
-     | let* -> ExprLetStar id
-     | letrec -> ExprLetRec id
-     | _ -> ExprProcCall id (* Check with a TA *)
-   end  
+     | quote -> ExprQuote input
+     | if -> ExprIf
+     | lambda -> ExprLambda 
+     | define -> ExprAssignment(* Check with a TA *)
+     | set! -> (*ExprSelfEvaluating (read_expression id)*)(* Check with a TA *)
+     | let -> ExprLet (read_expression id)
+     | let* -> ExprLetStar (read_expression id)
+     | letrec -> ExprLetRec (read_expression id)
+   end
+  | Atom (Boolean b) -> ExprSelfEvaluating (SEEBoolean b) (* do i need to put SEBoolean? *)
+  | Atom (Integer i) -> ExprSelfEvaluating i 
+  | Cons (car, cdr) -> (read_expression car, read_expression cdr) 
+  | Nil -> failwith "That's not a valid expression"
   | _ -> (* assuming that this is only reading expressions...*)
-     failwith "That's not a valid expression!"
+     ExprProcCall (read_expressions input)
 
 (* Parses a datum into a toplevel input. *)
 (* I think this is asking us to use the read_expressions to figure out if its an expression or a definition. As for
