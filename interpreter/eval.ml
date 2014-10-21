@@ -13,6 +13,8 @@ and value =
 and binding = value ref Environment.binding
 and environment = value ref Environment.environment
 
+exception InvalidVariable
+
 (* Parses a datum into an expression. *)
 let rec read_expression (input : datum) : expression =
   match input with
