@@ -136,17 +136,17 @@ module RangeIterator : RANGE_ITERATOR = functor (I : ITERATOR) -> struct
   type 'a t = ('a I.t * int) ref
   raise NoResult
 
-  module takeIter = TakeIterator (I)
-  let has_next (i: 'a t) = takeIter.has_next i
+module TakeIter : TakeIterator = functor (I:ITERATOR) -> struct
+  let has_next (i: 'a t) = I.has_next i
 
-  let next (i: 'a t) = takeIter.next i
+  let next (i: 'a t) = I.next i
+end
 
-  module Utils = IteratorUtilsFn (I)
+module Utils : IteratorUtilsFn = functor (I:ITERATOR) -> struct
   let create (n: int) (m: int) (iter: 'a I.t) : 'a t =
-    Utils.advance n iter;
+    I.advance n iter;
     (* iter is now at nth element,
     with m-n more elements left to iter through *)
     ref (iter, m-n)
-
 end
 

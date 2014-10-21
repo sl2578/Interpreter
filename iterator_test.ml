@@ -5,10 +5,11 @@ open Assertions
 open Iterator
 
 let list_iterator = ListIterator.create [1;2]
+let fail_list = ListIterator.create []
 TEST_UNIT "ListIterator_test1" = assert_true (ListIterator.has_next list_iterator = true)
 TEST_UNIT "ListIterator_test2" = assert_true (ListIterator.next list_iterator = 1)
 TEST_UNIT "ListIterator_test3" = assert_true (ListIterator.next list_iterator = 2)
-(* TEST_UNIT "ListIterator_test4" = assert_raises (Some NoResult) ListIterator.next list_iterator *)
+TEST_UNIT "ListIterator_test4" = assert_raises (Some NoResult) ListIterator.next fail_list
 
 let inorder_tree_iterator = InorderTreeIterator.create (Node(2, Node(1, Leaf, Leaf), Leaf))
 TEST_UNIT "InorderTreeIterator_test1" = assert_true (InorderTreeIterator.has_next inorder_tree_iterator = true)
