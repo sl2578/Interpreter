@@ -1,3 +1,5 @@
+(* How to deal with letbindings?*)
+
 open Ast
 
 type builtin = value list -> environment -> value
@@ -15,18 +17,11 @@ and environment = value ref Environment.environment
 
 exception InvalidVariable
 
-
-let three (cdr: datum) : bool =
-  match cdr with
-  | (a,b,c) -> (a, b, c)
-  | _ -> failwith "That's not valid syntax"
-
-let two (cdr: datum) : bool =
-  match cdr with
-  | (_,_) -> true
-  | _ -> false
-
-
+let rec makelst (l: 'a list) (dat: datum) : 'a list =
+  match dat with
+  | Nil -> List.rev l
+  | Cons( x, y) -> makelst (x::l) y 
+  
 (* Parses a datum into an expression.*)
 let rec read_expression (input : datum) : expression =
   match input with
@@ -36,32 +31,27 @@ let rec read_expression (input : datum) : expression =
     failwith "That's not a valid variable"
   | Atom (Boolean b) -> ExprSelfEvaluating (SEBoolean b) 
   | Atom (Integer i) -> ExprSelfEvaluating (SEInteger i) 
-  | Cons (car, cdr) -> 
-    begin match car with
-    | Atom (Identifier id) ->
-      begin match id with
-     | quote -> ExprQuote cdr
-     | if, Cons(exp1, Cons (exp2, Cons (exp3, Nil)))-> ExprIf (exp1, exp2, exp3)
-     | lambda, Cons(exp1, Cons(exp2, Nil)) -> ExprLambda (exp1, exp2)
-     | define, _ -> failwith "That's not a valid variable"
-     | set!, Cons(var, Cons(exp, Nil)) -> ExprAssignment (var, exp)
-     | let, Cons(letb, Cons(explst)) -> ExprLet ()
-     | let* -> ExprLetStar cdr 
-     | letrec -> ExprLetRec cdr
-      end
-    | _ -> failwht "Not valid syntax"
+  | Cons (Atom (Identifier id)), cdr) -> 
+    begin match id, cdr with
+     |"quote", _ -> ExprQuote cdr
+     |"if", Cons(exp1, Cons (exp2, Cons (exp3, Nil)))-> ExprIf (exp1, exp2, exp3)
+     |"lambda", Cons(exp1, Cons(exp2, Nil)) -> ExprLambda (makelst exp1, makelst exp2) (* WATDO *)
+     |"define", _ -> failwith "That's not a valid variable"
+     |"set!", Cons(var, Cons(exp, Nil)) -> ExprAssignment (var, exp)
+     |"let", Cons(letblst, Cons(explst, Nil)) -> ExprLet (makelst [] letblst, makelst [] explst)
+     |"let*", Cons(letblst, Cons(explst, Nil)) -> ExprLetStar (makelst [] letblst, makelst [] explst) 
+     |"letrec", Cons(letblst, Cons(explst, Nil)) -> ExprLetRec ( makelst [] letblst, makelst [] explst)
+     |exp1, Cons(explst, Nil) -> ExprProcCall(exp1, makelst [] explst)                         
+    end
   | Nil -> failwith "Unknown expression form"
-  | _ -> (* assuming that this is only reading expressions...*)
-     ExprProcCall (read_expressions input)
+  | _ -> failwith "Unknown expression form"
 
 (* Parses a datum into a toplevel input. *)
-(* I think this is asking us to use the read_expressions to figure out if its an expression or a definition. As for
-the syntax, I'm trying to look at ast for the syntax of toplevelexpresion and topleveldefinition??????? *)
 let read_toplevel (input : datum) : toplevel =
-  match input with
-  | Atom(Identifier id) -> ToplevelExpression (read_expression input) 
-  | (define Atom(Identifier var) Atom(Identifier exp)) -> ToplevelDefinition (read_expression var, read_expression exp) (* WHAT DO SYNTAX *)
-  | _ -> failwith "That's not a valid toplevel!" (* are there other forms of toplevel?*)
+  match Cons(e1, e2) with
+  |"define", Cons(var, Cons(exp, Nil)) -> ToplevelDefinition (read_expression var, read_expression exp)
+  |exp, Nil -> ToplevelExpression (read_expression exp)
+  | _ -> failwith "Unknown toplevel form"
 
 (* This function returns an initial environment with any built-in
    bound variables. *)
