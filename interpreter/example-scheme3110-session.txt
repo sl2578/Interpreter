@@ -143,10 +143,10 @@ zardoz> (let* ((x 0) (y (+ 1 x))) (+ x y))
 
 1
 zardoz> (let ((x 0) (y (+ 1 x))) (+ x y))
-
+q
 Failure("x is not bound in this environment.")
 zardoz> (letrec ((factorial (lambda (x)
-                              (if (eqv? x 0)
+                              (if (equal? x 0)
                                   1
                                 (* x (factorial (+ x -1)))))))
           (factorial 5))
@@ -154,7 +154,7 @@ zardoz> (letrec ((factorial (lambda (x)
 120
 zardoz> ;; We can also do it like this:
         (define factorial (lambda (x) 
-                            (if (eqv? x 0)
+                            (if (equal? x 0)
                                 1
                               (* x (factorial (+ x -1))))))
 

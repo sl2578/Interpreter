@@ -23,3 +23,13 @@ let string_of_environment string_of_value env =
   let stringified_bindings = List.map string_of_binding env in
   let all_bindings_string = String.concat ", " stringified_bindings in
   all_bindings_string
+
+let, 
+	Cons(
+		Cons(
+			\\letblst: Cons(x, Cons(0, Nil)), Cons(y, Cons (1, Nil))),
+		Cons(
+			\\explst: Cons(+, Cons(x, Cons(y, Nil)))
+			, Nil)
+		)
+	
