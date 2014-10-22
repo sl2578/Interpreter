@@ -41,6 +41,12 @@ let eval_se (se : Ast.self_evaluating) : value =
   | SEBoolean b -> ValDatum(Ast.Atom(Ast.Boolean b))
   | SEInteger i -> ValDatum(Ast.Atom(Ast.Integer i))
 
+let eval_v (v : Ast.variable) (env: environment) : value =
+  if Environment.is_bound env v
+  then !(Environment.get_binding env v)
+  else let var = Identifier.string_of_variable v in
+    failwith (var^" is not bound in this environment.")
+
 (* This function returns an initial environment with any built-in
    bound variables. *)
 let rec initial_environment () : environment =
@@ -58,8 +64,7 @@ let rec initial_environment () : environment =
 and eval (expression : expression) (env : environment) : value =
   match expression with
   | ExprSelfEvaluating se -> eval_se se
-  | ExprVariable _        ->  
-     failwith "'Oh I sure love to row my boat with my...oar."
+  | ExprVariable v -> eval_v v env
   | ExprQuote _           ->
      failwith "Rowing!"
   | ExprLambda (_, _)
