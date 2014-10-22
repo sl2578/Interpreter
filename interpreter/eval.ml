@@ -15,26 +15,42 @@ and environment = value ref Environment.environment
 
 exception InvalidVariable
 
-(* Parses a datum into an expression. *)
+
+let three (cdr: datum) : bool =
+  match cdr with
+  | (a,b,c) -> (a, b, c)
+  | _ -> failwith "That's not valid syntax"
+
+let two (cdr: datum) : bool =
+  match cdr with
+  | (_,_) -> true
+  | _ -> false
+
+
+(* Parses a datum into an expression.*)
 let rec read_expression (input : datum) : expression =
   match input with
   | Atom (Identifier id) when Identifier.is_valid_variable id ->
      ExprVariable (Identifier.variable_of_identifier id)
-  | Atom (Identifier id) ->
-     begin match id with
-     | quote -> ExprQuote input
-     | if -> ExprIf
-     | lambda -> ExprLambda 
-     | define -> ExprAssignment(* Check with a TA *)
-     | set! -> (*ExprSelfEvaluating (read_expression id)*)(* Check with a TA *)
-     | let -> ExprLet (read_expression id)
-     | let* -> ExprLetStar (read_expression id)
-     | letrec -> ExprLetRec (read_expression id)
-   end
-  | Atom (Boolean b) -> ExprSelfEvaluating (SEEBoolean b) (* do i need to put SEBoolean? *)
-  | Atom (Integer i) -> ExprSelfEvaluating i 
-  | Cons (car, cdr) -> (read_expression car, read_expression cdr) 
-  | Nil -> failwith "That's not a valid expression"
+  | Atom (Identifier id) -> 
+    failwith "That's not a valid variable"
+  | Atom (Boolean b) -> ExprSelfEvaluating (SEBoolean b) 
+  | Atom (Integer i) -> ExprSelfEvaluating (SEInteger i) 
+  | Cons (car, cdr) -> 
+    begin match car with
+    | Atom (Identifier id) ->
+      begin match id with
+     | quote -> ExprQuote cdr
+     | if, Cons(exp1, Cons (exp2, Cons (exp3, Nil)))-> ExprIf (exp1, exp2, exp3)
+     | lambda, Cons(exp1, Cons(exp2, Nil)) -> ExprLambda (exp1, exp2)
+     | define, _ -> failwith "That's not a valid variable"
+     | set!, Cons(var, Cons(exp, Nil)) -> ExprAssignment (var, exp)
+     | let, Cons(letb, Cons(explst)) -> ExprLet ()
+     | let* -> ExprLetStar cdr 
+     | letrec -> ExprLetRec cdr
+      end
+    | _ -> failwht "Not valid syntax"
+  | Nil -> failwith "Unknown expression form"
   | _ -> (* assuming that this is only reading expressions...*)
      ExprProcCall (read_expressions input)
 
