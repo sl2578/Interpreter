@@ -31,6 +31,7 @@ let rec read_expression (input : datum) : expression =
     failwith "That's not a valid variable"
   | Atom (Boolean b) -> ExprSelfEvaluating (SEBoolean b) 
   | Atom (Integer i) -> ExprSelfEvaluating (SEInteger i) 
+<<<<<<< HEAD
   | Cons (Atom (Identifier id)), cdr) -> 
     begin match id, cdr with
      |"quote", _ -> ExprQuote cdr
@@ -42,6 +43,20 @@ let rec read_expression (input : datum) : expression =
      |"let*", Cons(letblst, Cons(explst, Nil)) -> ExprLetStar (makelst [] letblst, makelst [] explst) 
      |"letrec", Cons(letblst, Cons(explst, Nil)) -> ExprLetRec ( makelst [] letblst, makelst [] explst)
      |exp1, Cons(explst, Nil) -> ExprProcCall(exp1, makelst [] explst)                         
+=======
+  | Cons (Atom (Identifier id), cdr) -> 
+    begin match id with
+    | quote -> ExprQuote cdr
+    | if, Cons(exp1, Cons (exp2, Cons (exp3, Nil)))-> ExprIf (exp1, exp2, exp3)
+    | define, _ -> failwith "That's not a valid variable"
+
+    | lambda, -> ExprLambda (exp1, exp2)
+    | set!, Cons(var, Cons(exp, Nil)) -> ExprAssignment (var, exp)
+    | let, Cons(letb, Cons(explst)) -> ExprLet ()
+    | let* -> ExprLetStar cdr 
+    | letrec -> ExprLetRec cdr
+    | _ -> failwith "Not valid syntax"
+>>>>>>> c9635443efa72ed0aab5afc75047475e73ba2b7a
     end
   | Nil -> failwith "Unknown expression form"
   | _ -> failwith "Unknown expression form"
