@@ -26,7 +26,12 @@ let rec read_expression (input : datum) : expression =
     ExprVariable (Identifier.variable_of_identifier id)
   | Atom (Identifier id) -> failwith "That's not a valid variable"
   | Atom (Boolean b) -> ExprSelfEvaluating (SEBoolean b) 
-  | Atom (Integer i) -> ExprSelfEvaluating (SEInteger i)
+  | Atom (Integer i) -> ExprSelfEvaluating (SEInteger i) 
+  | Cons (Atom (Identifier id), Cons(dat, Nil)) 
+    when id = Identifier.identifier_of_string "quote" ->  ExprQuote dat
+  | Cons (Atom (Identifier id), Cons(exp1, Cons (exp2, Cons (exp3, Nil)))) 
+    when id = Identifier.identifier_of_string "if" -> 
+      ExprIf (read_expression exp1, read_expression exp2, read_expression exp3)
   | Nil -> failwith "Unknown expression form"
   (* quote *)
   | Cons (Atom (Identifier id), Cons(dat, Nil))
@@ -56,6 +61,8 @@ let eval_v (v : Ast.variable) (env: environment) : value =
   else let var = Identifier.string_of_variable v in
     failwith (var^" is not bound in this environment.")
 
+let eval_if (v: Ast.)
+
 (* This function returns an initial environment with any built-in
    bound variables. *)
 let rec initial_environment () : environment =
@@ -78,7 +85,7 @@ and eval (expression : expression) (env : environment) : value =
   | ExprLambda (_, _)
   | ExprProcCall _        ->
      failwith "Sing along with me as I row my boat!'"
-  | ExprIf (_, _, _) ->
+  | ExprIf (b, exp1, exp2) -> 
      failwith "But I love you!"
   | ExprAssignment (_, _) ->
      failwith "Say something funny, Rower!"
