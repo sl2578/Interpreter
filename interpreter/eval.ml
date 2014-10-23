@@ -12,66 +12,55 @@ and value =
   | ValDatum of datum
   | ValProcedure of procedure
 
-and binding = value ref Environment.binding
+and binding = value ref Environment.binding (* (Identifier.variable, value ref) *)
 and environment = value ref Environment.environment
 
-exception InvalidVariable
-
-let rec makelst (l: 'a list) (dat: datum) : 'a list =
+(* let rec makelst (l: 'a list) (dat: datum) : 'a list =
   match dat with
   | Nil -> List.rev l
   | Cons( x, y) -> makelst (x::l) y 
-  
-(* Parses a datum into an expression.*)
+ *)
 let rec read_expression (input : datum) : expression =
   match input with
   | Atom (Identifier id) when Identifier.is_valid_variable id ->
      ExprVariable (Identifier.variable_of_identifier id)
-  | Atom (Identifier id) -> 
-    failwith "That's not a valid variable"
+  | Atom (Identifier id) -> failwith "That's not a valid variable"
   | Atom (Boolean b) -> ExprSelfEvaluating (SEBoolean b) 
   | Atom (Integer i) -> ExprSelfEvaluating (SEInteger i) 
-  | Cons (Atom (Identifier id)), cdr) -> 
-    begin match id, cdr with
-     |"quote", _ -> ExprQuote cdr
-     |"if", Cons(exp1, Cons (exp2, Cons (exp3, Nil)))-> ExprIf (exp1, exp2, exp3)
-     |"lambda", Cons(exp1, Cons(exp2, Nil)) -> ExprLambda (makelst exp1, makelst exp2) (* WATDO *)
-     |"define", _ -> failwith "That's not a valid variable"
-     |"set!", Cons(var, Cons(exp, Nil)) -> ExprAssignment (var, exp)
-     |"let", Cons(letblst, Cons(explst, Nil)) -> ExprLet (makelst [] letblst, makelst [] explst)
-     |"let*", Cons(letblst, Cons(explst, Nil)) -> ExprLetStar (makelst [] letblst, makelst [] explst) 
-     |"letrec", Cons(letblst, Cons(explst, Nil)) -> ExprLetRec ( makelst [] letblst, makelst [] explst)
-     |exp1, Cons(explst, Nil) -> ExprProcCall(exp1, makelst [] explst)                         
-
-(* yours
-  | Cons (Atom (Identifier id), cdr) -> 
-    begin match id with
-    | quote -> ExprQuote cdr
-    | if, Cons(exp1, Cons (exp2, Cons (exp3, Nil)))-> ExprIf (exp1, exp2, exp3)
-    | define, _ -> failwith "That's not a valid variable"
-
-    | lambda, -> ExprLambda (exp1, exp2)
-    | set!, Cons(var, Cons(exp, Nil)) -> ExprAssignment (var, exp)
-    | let, Cons(letb, Cons(explst)) -> ExprLet ()
-    | let* -> ExprLetStar cdr 
-    | letrec -> ExprLetRec cdr
-    | _ -> failwith "Not valid syntax"
-*)
-    end
+  | Cons (Atom (Identifier id), Cons(dat, Nil)) 
+    when id = Identifier.identifier_of_string "quote" ->  ExprQuote dat
+  | Cons (Atom (Identifier id), Cons(exp1, Cons (exp2, Cons (exp3, Nil)))) 
+    when id = Identifier.identifier_of_string "if" -> 
+      ExprIf (read_expression exp1, read_expression exp2, read_expression exp3)
   | Nil -> failwith "Unknown expression form"
   | _ -> failwith "Unknown expression form"
 
 (* Parses a datum into a toplevel input. *)
 let read_toplevel (input : datum) : toplevel =
-  match Cons(e1, e2) with
-  |"define", Cons(var, Cons(exp, Nil)) -> ToplevelDefinition (read_expression var, read_expression exp)
-  |exp, Nil -> ToplevelExpression (read_expression exp)
-  |_ -> failwith "Unknown toplevel form"
+  match input with
+  |_ -> ToplevelExpression (read_expression input)
+
+let eval_se (se : Ast.self_evaluating) : value =
+  match se with
+  | SEBoolean b -> ValDatum(Ast.Atom(Ast.Boolean b))
+  | SEInteger i -> ValDatum(Ast.Atom(Ast.Integer i))
+
+let eval_v (v : Ast.variable) (env: environment) : value =
+  if Environment.is_bound env v
+  then !(Environment.get_binding env v)
+  else let var = Identifier.string_of_variable v in
+    failwith (var^" is not bound in this environment.")
+
+let eval_if (v: Ast.)
 
 (* This function returns an initial environment with any built-in
    bound variables. *)
 let rec initial_environment () : environment =
-  failwith "You know!"
+  let env = Environment.empty_environment in
+  (* adding course -> 3110 *)
+  Environment.add_binding env
+  (Identifier.variable_of_identifier(Identifier.identifier_of_string "course"),
+  ref (ValDatum(Ast.Atom(Ast.Integer 3110))))
 
 (* Evaluates an expression down to a value in a given environment. *)
 (* You may want to add helper functions to make this function more
@@ -80,15 +69,13 @@ let rec initial_environment () : environment =
    statement. *)
 and eval (expression : expression) (env : environment) : value =
   match expression with
-  | ExprSelfEvaluating _
-  | ExprVariable _        ->
-     failwith "'Oh I sure love to row my boat with my...oar."
-  | ExprQuote _           ->
-     failwith "Rowing!"
+  | ExprSelfEvaluating se -> eval_se se
+  | ExprVariable v -> eval_v v env
+  | ExprQuote (q)-> ValDatum q
   | ExprLambda (_, _)
   | ExprProcCall _        ->
      failwith "Sing along with me as I row my boat!'"
-  | ExprIf (_, _, _) ->
+  | ExprIf (b, exp1, exp2) -> 
      failwith "But I love you!"
   | ExprAssignment (_, _) ->
      failwith "Say something funny, Rower!"

@@ -23,7 +23,3 @@ let variable_of_identifier id =
 
 let string_of_variable var = var
 
-lambda (x y) (+ x y)
-Cons ( lambda . Cons ( 
-	Cons ( x . Cons ( y . () ) ) . 
-	Cons ( Cons( +, Cons(x, Cons( y, Nil))), () ) ) )
