@@ -23,24 +23,33 @@ and environment = value ref Environment.environment
 let rec read_expression (input : datum) : expression =
   match input with
   | Atom (Identifier id) when Identifier.is_valid_variable id ->
-     ExprVariable (Identifier.variable_of_identifier id)
+    ExprVariable (Identifier.variable_of_identifier id)
   | Atom (Identifier id) -> failwith "That's not a valid variable"
   | Atom (Boolean b) -> ExprSelfEvaluating (SEBoolean b) 
   | Atom (Integer i) -> ExprSelfEvaluating (SEInteger i)
   | Nil -> failwith "Unknown expression form"
+  (* quote *)
+  | Cons (Atom (Identifier id), Cons(dat, Nil))
+    when id = Identifier.identifier_of_string "quote" -> ExprQuote dat
+  (* if *)
+  | Cons (Atom (Identifier id), Cons(exp1, Cons (exp2, Cons (exp3, Nil))))
+    when id = Identifier.identifier_of_string "if" ->
+      ExprIf (read_expression exp1, read_expression exp2, read_expression exp3)
   | _ -> failwith "Unknown expression form"
 
 (* Parses a datum into a toplevel input. *)
 let read_toplevel (input : datum) : toplevel =
   match input with
-  (* ONLY WORKS FOR EXPRESSIONS FOR NOW *)
   | _ -> ToplevelExpression (read_expression input)
 
+(* Returns: value of the self_evaluating expression *)
 let eval_se (se : Ast.self_evaluating) : value =
   match se with
   | SEBoolean b -> ValDatum(Ast.Atom(Ast.Boolean b))
   | SEInteger i -> ValDatum(Ast.Atom(Ast.Integer i))
 
+(* Requires: a valid variable of identifier
+Returns: value of the variable in the environment *)
 let eval_v (v : Ast.variable) (env: environment) : value =
   if Environment.is_bound env v
   then !(Environment.get_binding env v)
@@ -65,8 +74,7 @@ and eval (expression : expression) (env : environment) : value =
   match expression with
   | ExprSelfEvaluating se -> eval_se se
   | ExprVariable v -> eval_v v env
-  | ExprQuote _           ->
-     failwith "Rowing!"
+  | ExprQuote q -> ValDatum q
   | ExprLambda (_, _)
   | ExprProcCall _        ->
      failwith "Sing along with me as I row my boat!'"
