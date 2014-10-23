@@ -24,7 +24,7 @@ let rec makelst (l: 'a list) (dat: datum) : 'a list =
 let rec read_expression (input : datum) : expression =
   match input with
   | Atom (Identifier id) when Identifier.is_valid_variable id ->
-     ExprVariable (Identifier.variable_of_identifier id)
+    ExprVariable (Identifier.variable_of_identifier id)
   | Atom (Identifier id) -> failwith "That's not a valid variable"
   | Atom (Boolean b) -> ExprSelfEvaluating (SEBoolean b) 
   | Atom (Integer i) -> ExprSelfEvaluating (SEInteger i) 
@@ -43,18 +43,28 @@ let rec read_expression (input : datum) : expression =
         (List.fold_left (fun a e -> (read_expression e)::a) [] (makelst [] explst)))    
 
   | Nil -> failwith "Unknown expression form"
+  (* quote *)
+  | Cons (Atom (Identifier id), Cons(dat, Nil))
+    when id = Identifier.identifier_of_string "quote" -> ExprQuote dat
+  (* if *)
+  | Cons (Atom (Identifier id), Cons(exp1, Cons (exp2, Cons (exp3, Nil))))
+    when id = Identifier.identifier_of_string "if" ->
+      ExprIf (read_expression exp1, read_expression exp2, read_expression exp3)
   | _ -> failwith "Unknown expression form"
 
 (* Parses a datum into a toplevel input. *)
 let read_toplevel (input : datum) : toplevel =
   match input with
-  |_ -> ToplevelExpression (read_expression input)
+  | _ -> ToplevelExpression (read_expression input)
 
 let eval_se (se : self_evaluating) : value =
+(* Returns: value of the self_evaluating expression *)
   match se with
   | SEBoolean b -> ValDatum(Atom(Boolean b))
   | SEInteger i -> ValDatum(Atom(Integer i))
 
+(* Requires: a valid variable of identifier
+Returns: value of the variable in the environment *)
 let eval_v (v : variable) (env: environment) : value =
   if Environment.is_bound env v
   then !(Environment.get_binding env v)
@@ -79,7 +89,7 @@ and eval (expression : expression) (env : environment) : value =
   match expression with
   | ExprSelfEvaluating se -> eval_se se
   | ExprVariable v -> eval_v v env
-  | ExprQuote q-> ValDatum q
+  | ExprQuote q -> ValDatum q
   | ExprLambda (_, _)
   | ExprProcCall _        ->
      failwith "Sing along with me as I row my boat!'"
