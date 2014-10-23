@@ -15,11 +15,12 @@ and value =
 and binding = value ref Environment.binding (* (Identifier.variable, value ref) *)
 and environment = value ref Environment.environment
 
-(* let rec makelst (l: 'a list) (dat: datum) : 'a list =
+let rec makelst (l: 'a list) (dat: datum) : 'a list =
   match dat with
-  | Nil -> List.rev l
-  | Cons( x, y) -> makelst (x::l) y 
- *)
+  | Nil -> l
+  | Cons(x, y) -> makelst (x::l) y 
+  | _ -> failwith "Unknown expression form"
+
 let rec read_expression (input : datum) : expression =
   match input with
   | Atom (Identifier id) when Identifier.is_valid_variable id ->
@@ -32,6 +33,15 @@ let rec read_expression (input : datum) : expression =
   | Cons (Atom (Identifier id), Cons(exp1, Cons (exp2, Cons (exp3, Nil)))) 
     when id = Identifier.identifier_of_string "if" -> 
       ExprIf (read_expression exp1, read_expression exp2, read_expression exp3)
+  | Cons (Atom (Identifier id), Cons(varlst, explst))
+    when id = Identifier.identifier_of_string "lambda" ->
+      ExprLambda (
+        (List.fold_left (fun a e -> 
+          match (read_expression e) with
+          ExprVariable x -> 
+          if (read_expression e) = ExprVariable  then (read_expression e)::a else failwith "Unknown variable form") [] (makelst [] varlst)), 
+        (List.fold_left (fun a e -> (read_expression e)::a) [] (makelst [] explst)))    
+
   | Nil -> failwith "Unknown expression form"
   | _ -> failwith "Unknown expression form"
 
@@ -40,18 +50,16 @@ let read_toplevel (input : datum) : toplevel =
   match input with
   |_ -> ToplevelExpression (read_expression input)
 
-let eval_se (se : Ast.self_evaluating) : value =
+let eval_se (se : self_evaluating) : value =
   match se with
-  | SEBoolean b -> ValDatum(Ast.Atom(Ast.Boolean b))
-  | SEInteger i -> ValDatum(Ast.Atom(Ast.Integer i))
+  | SEBoolean b -> ValDatum(Atom(Boolean b))
+  | SEInteger i -> ValDatum(Atom(Integer i))
 
-let eval_v (v : Ast.variable) (env: environment) : value =
+let eval_v (v : variable) (env: environment) : value =
   if Environment.is_bound env v
   then !(Environment.get_binding env v)
   else let var = Identifier.string_of_variable v in
     failwith (var^" is not bound in this environment.")
-
-let eval_if (v: Ast.)
 
 (* This function returns an initial environment with any built-in
    bound variables. *)
@@ -60,7 +68,7 @@ let rec initial_environment () : environment =
   (* adding course -> 3110 *)
   Environment.add_binding env
   (Identifier.variable_of_identifier(Identifier.identifier_of_string "course"),
-  ref (ValDatum(Ast.Atom(Ast.Integer 3110))))
+  ref (ValDatum(Atom(Integer 3110))))
 
 (* Evaluates an expression down to a value in a given environment. *)
 (* You may want to add helper functions to make this function more
@@ -71,12 +79,15 @@ and eval (expression : expression) (env : environment) : value =
   match expression with
   | ExprSelfEvaluating se -> eval_se se
   | ExprVariable v -> eval_v v env
-  | ExprQuote (q)-> ValDatum q
+  | ExprQuote q-> ValDatum q
   | ExprLambda (_, _)
   | ExprProcCall _        ->
      failwith "Sing along with me as I row my boat!'"
-  | ExprIf (b, exp1, exp2) -> 
-     failwith "But I love you!"
+  | ExprIf (exp1, exp2, exp3) -> 
+    begin match exp1 with
+      |ExprSelfEvaluating(SEBoolean b) -> if b then eval exp2 env else eval exp3 env
+      |_  -> failwith "Unknown boolean form"
+    end
   | ExprAssignment (_, _) ->
      failwith "Say something funny, Rower!"
   | ExprLet (_, _)
