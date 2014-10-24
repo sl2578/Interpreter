@@ -1,5 +1,5 @@
 (* How to deal with letbindings?
-refactor makelst to only take in dat i.e. use helper for acc *)
+ *)
 
 open Ast
 
@@ -52,23 +52,24 @@ let rec read_expression (input : datum) : expression =
         (List.fold_left helper [] (listify varlst)),
         (* read in each expression *)
         (List.fold_left (fun acc elm -> acc@[(read_expression elm)]) [] (listify explst)))
-  (* matches procedures *)
-  | Cons (x, explst) ->
-      (* read in each expression datum *)
-      let lst = (List.fold_left (fun acc elm -> acc@[(read_expression elm)]) [] (listify explst)) in
-      ExprProcCall((read_expression x), lst)
-  (* matches define *)
-  | Cons (Atom (Identifier id), _)
+  (* not tested: matches define *)
+  | Cons (Atom(Identifier id), _)
     when id = Identifier.identifier_of_string "define" ->
       failwith "define not allowed as an expression, only at the toplevel"
-  (* matches assignment *)
-(*   | Cons (Atom (Identifier id), )
- *)  | Nil -> failwith "NILLLLLLLLL Unknown expression form"
-  (* | _ -> failwith "warsdsUnknown expression form" *)
+  (* not tested: matches assignment *)
+  (* | Cons (Atom (Identifier id), ) *)
+  (* matches Nil *)
+  | Nil -> failwith "NILLLLLLLLL Unknown expression form"
+  (* matches procedures *)
+  | Cons (x, explst) ->
+    (* read in each expression datum *)
+    let lst = (List.fold_left (fun acc elm -> acc@[(read_expression elm)]) [] (listify explst)) in
+    ExprProcCall((read_expression x), lst)
 
 (* Parses a datum into a toplevel input. *)
 let read_toplevel (input : datum) : toplevel =
   match input with
+
   | _ -> ToplevelExpression (read_expression input)
 
 let eval_se (se : self_evaluating) : value =
@@ -84,11 +85,14 @@ let eval_v (v : variable) (env: environment) : value =
   then !(Environment.get_binding env v)
   else failwith "Variable is not bound in this environment."
 
-let mult (lst : value list) (env: environment) : value =
+(* requires: value list, environment,
+function taking two ints and returns and int and initial value for a fold
+returns: result of folding with function on each value in list *)
+let operate (lst : value list) (env: environment) (op: int -> int -> int) (init : int) : value =
   if List.length lst < 1 then failwith "Invalid arguments to arithmetic function"
   else let rec helper (acc : int) (elm: value) : int =
     match elm with
-    | ValDatum(Atom(Integer i)) -> acc*i
+    | ValDatum(Atom(Integer i)) -> (op acc i)
     (* look up variable in environment *)
     | ValDatum(Atom(Identifier i)) when Identifier.is_valid_variable i ->
       (* if variable is bound *)
@@ -96,21 +100,17 @@ let mult (lst : value list) (env: environment) : value =
         (* get value in environment and multiply by acc *)
         let v = !(Environment.get_binding env (Identifier.variable_of_identifier i)) in
           match v with
-          | ValDatum(Atom(Integer i)) -> acc*i
+          | ValDatum(Atom(Integer i)) -> (op acc i)
           (* variable not bound to an integer *)
           | _ -> failwith "Invalid arguments to arithmetic function"
       else failwith "Variable is not bound in this environment."
     (* not an integer or variable *)
     | _ -> failwith "Invalid arguments to arithmetic function" in
-    ValDatum(Atom(Integer (List.fold_left helper 1 lst)))
+    ValDatum(Atom(Integer (List.fold_left helper init lst)))
 
-let add (lst : value list) (env: environment) : value =
-  if List.length lst < 1 then failwith "Invalid arguments to arithmetic function"
-  else let rec helper (acc : int) (elm: value) : int =
-    match elm with
-    | ValDatum(Atom(Integer i)) -> acc+i
-    | _ -> failwith "Invalid arguments to arithmetic function" in
-    ValDatum(Atom(Integer (List.fold_left helper 0 lst)))
+let add (lst : value list) (env: environment) : value = operate lst env ( + ) 0
+
+let mult (lst : value list) (env: environment) : value = operate lst env ( * ) 1
 
 (* This function returns an initial environment with any built-in
    bound variables. *)
@@ -123,6 +123,9 @@ let rec initial_environment () : environment =
   let env = Environment.add_binding env
     (Identifier.variable_of_identifier(Identifier.identifier_of_string "+"),
     ref (ValProcedure(ProcBuiltin add))) in
+  let env = Environment.add_binding env
+    (Identifier.variable_of_identifier(Identifier.identifier_of_string "*"),
+    ref (ValProcedure(ProcBuiltin mult))) in
   env
 
 (* Evaluates an expression down to a value in a given environment. *)
@@ -135,8 +138,8 @@ and eval (expression : expression) (env : environment) : value =
   | ExprSelfEvaluating se -> eval_se se
   | ExprVariable v -> eval_v v env
   | ExprQuote q -> ValDatum q
-  | ExprLambda (_, _)
-  | ExprProcCall _        ->
+  | ExprLambda (_, _) -> failwith "Sing along with me as I row my lambda!'"
+  | ExprProcCall (exp, explst) ->
      failwith "Sing along with me as I row my boat!'"
   | ExprIf (exp1, exp2, exp3) -> 
     begin match exp1 with
