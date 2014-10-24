@@ -1,4 +1,5 @@
-(* How to deal with letbindings?*)
+(* How to deal with letbindings?
+ *)
 
 open Ast
 
@@ -15,11 +16,15 @@ and value =
 and binding = value ref Environment.binding (* (Identifier.variable, value ref) *)
 and environment = value ref Environment.environment
 
-let rec makelst (l: 'a list) (dat: datum) : 'a list =
-  match dat with
-  | Nil -> l
-  | Cons(x, y) -> makelst (x::l) y 
-  | _ -> failwith "Unknown expression form"
+(* requires: list of Cons
+returns: list of datum in a list of Cons *)
+let listify (dat : datum) : 'a list =
+  let rec helper (acc: 'a list) (dat: datum) : ' a list =
+    match dat with
+    | Nil -> acc
+    | Cons(x, y) -> helper (acc@[x]) y
+    | _ -> failwith "Not a list of Cons!" in
+  helper [] dat
 
 let lambdahelper acc elm =
   match elm with
@@ -28,9 +33,10 @@ let lambdahelper acc elm =
 
 let rec read_expression (input : datum) : expression =
   match input with
-  | Atom (Identifier id) when Identifier.is_valid_variable id ->
+  | Atom (Identifier id) ->
+    if Identifier.is_valid_variable id then 
     ExprVariable (Identifier.variable_of_identifier id)
-  | Atom (Identifier id) -> failwith "That's not a valid variable"
+    else failwith "That's not a valid variable"
   | Atom (Boolean b) -> ExprSelfEvaluating (SEBoolean b) 
   | Atom (Integer i) -> ExprSelfEvaluating (SEInteger i) 
   | Cons (Atom (Identifier id), Cons(dat, Nil)) 
@@ -38,24 +44,37 @@ let rec read_expression (input : datum) : expression =
   | Cons (Atom (Identifier id), Cons(exp1, Cons (exp2, Cons (exp3, Nil)))) 
     when id = Identifier.identifier_of_string "if" -> 
       ExprIf (read_expression exp1, read_expression exp2, read_expression exp3)
+  (* matches lambdas *)
   | Cons (Atom (Identifier id), Cons(varlst, explst))
     when id = Identifier.identifier_of_string "lambda" ->
-      ExprLambda(List.fold_left (fun a e -> lambdahelper a e) [] (makelst [] varlst),
-        List.fold_left (fun a e -> (read_expression e)::a) [] (makelst [] explst))
-
-  | Nil -> failwith "Unknown expression form"
-  (* quote *)
-  | Cons (Atom (Identifier id), Cons(dat, Nil))
-    when id = Identifier.identifier_of_string "quote" -> ExprQuote dat
-  (* if *)
-  | Cons (Atom (Identifier id), Cons(exp1, Cons (exp2, Cons (exp3, Nil))))
-    when id = Identifier.identifier_of_string "if" ->
-      ExprIf (read_expression exp1, read_expression exp2, read_expression exp3)
-  | _ -> failwith "Unknown expression form"
+      (* read in each variable datum *)
+      let helper acc elm =
+        let v = read_expression elm 
+          in match v with
+          | ExprVariable x -> acc@[x]
+          | _ -> failwith "Invalid lambda variable"
+        in ExprLambda (
+        (List.fold_left helper [] (listify varlst)),
+        (* read in each expression *)
+        (List.fold_left (fun acc elm -> acc@[(read_expression elm)]) [] (listify explst)))
+  (* not tested: matches define *)
+(*   | Cons (Atom(Identifier id), _)
+    when id = Identifier.identifier_of_string "define" ->
+      failwith "defdsdsine not allowed as an expression, only at the toplevel" *)
+  (* not tested: matches assignment *)
+  (* | Cons (Atom (Identifier id), ) *)
+  (* matches Nil *)
+  | Nil -> failwith "NILLLLLLLLL Unknown expression form"
+  (* matches procedures *)
+  | Cons (x, explst) ->
+    (* read in each expression datum *)
+    let lst = (List.fold_left (fun acc elm -> acc@[(read_expression elm)]) [] (listify explst)) in
+    ExprProcCall((read_expression x), lst)
 
 (* Parses a datum into a toplevel input. *)
 let read_toplevel (input : datum) : toplevel =
   match input with
+
   | _ -> ToplevelExpression (read_expression input)
 
 let eval_se (se : self_evaluating) : value =
@@ -69,18 +88,74 @@ Returns: value of the variable in the environment *)
 let eval_v (v : variable) (env: environment) : value =
   if Environment.is_bound env v
   then !(Environment.get_binding env v)
-  else let var = Identifier.string_of_variable v in
-    failwith (var^" is not bound in this environment.")
+  else failwith "Variable is not bound in this environment."
+
+(* requires: value list, environment,
+function taking two ints and returns and int and initial value for a fold
+returns: result of folding with function on each value in list *)
+let operate (lst : value list) (env: environment) (op: int -> int -> int) (init : int) : value =
+  if List.length lst < 1 then failwith "Invalid arguments to arithmetic function"
+  else let rec helper (acc : int) (elm: value) : int =
+    match elm with
+    | ValDatum(Atom(Integer i)) -> (op acc i)
+    (* look up variable in environment *)
+    | ValDatum(Atom(Identifier i)) when Identifier.is_valid_variable i ->
+      (* if variable is bound *)
+      if Environment.is_bound env (Identifier.variable_of_identifier i) then
+        (* get value in environment and multiply by acc *)
+        let v = !(Environment.get_binding env (Identifier.variable_of_identifier i)) in
+          match v with
+          | ValDatum(Atom(Integer i)) -> (op acc i)
+          (* variable not bound to an integer *)
+          | _ -> failwith "Invalid arguments to arithmetic function"
+      else failwith "Variable is not bound in this environment."
+    (* not an integer or variable *)
+    | _ -> failwith "Invalid arguments to arithmetic function" in
+    ValDatum(Atom(Integer (List.fold_left helper init lst)))
+
+let add (lst : value list) (env : environment) : value = operate lst env ( + ) 0
+
+let mult (lst : value list) (env : environment) : value = operate lst env ( * ) 1
+
+let car (cons: value list) (env : environment) : value =
+  if List.length cons <> 1 then failwith "Invalid arguments to car."
+  else match cons with
+  | (ValDatum (Cons(x, _)))::t -> ValDatum x
+  | _ -> failwith "Invalid arguments to car."
+
+let cdr (cons: value list) (env : environment) : value =
+  if List.length cons <> 1 then failwith "Invalid arguments to carcdr."
+  else match cons with
+  | (ValDatum (Cons(_, x)))::t -> ValDatum x
+  | _ -> failwith "Invalid arguments to cdr."
+
+(* since eval takes in wrong type, we need our own evaluate for the builtin *)
+let evaluate (cons: value list) (env : environment) : value =
 
 (* This function returns an initial environment with any built-in
    bound variables. *)
 let rec initial_environment () : environment =
   let env = Environment.empty_environment in
-  (* adding course -> 3110 *)
-  Environment.add_binding env
-  (Identifier.variable_of_identifier(Identifier.identifier_of_string "course"),
-  ref (ValDatum(Atom(Integer 3110))))
-  
+  (* binding course -> 3110 *)
+  let env = Environment.add_binding env
+    (Identifier.variable_of_identifier(Identifier.identifier_of_string "course"),
+    ref (ValDatum(Atom(Integer 3110)))) in
+  let env = Environment.add_binding env
+    (Identifier.variable_of_identifier(Identifier.identifier_of_string "car"),
+    ref (ValProcedure(ProcBuiltin car))) in
+  let env = Environment.add_binding env
+    (Identifier.variable_of_identifier(Identifier.identifier_of_string "cdr"),
+    ref (ValProcedure(ProcBuiltin cdr))) in
+  let env = Environment.add_binding env
+    (Identifier.variable_of_identifier(Identifier.identifier_of_string "+"),
+    ref (ValProcedure(ProcBuiltin add))) in
+  let env = Environment.add_binding env
+    (Identifier.variable_of_identifier(Identifier.identifier_of_string "*"),
+    ref (ValProcedure(ProcBuiltin mult))) in
+  let env = Environment.add_binding env
+    (Identifier.variable_of_identifier(Identifier.identifier_of_string "eval"),
+    ref (ValProcedure(ProcBuiltin eval))) in
+  env
 
 (* Evaluates an expression down to a value in a given environment. *)
 (* You may want to add helper functions to make this function more
@@ -92,13 +167,13 @@ and eval (expression : expression) (env : environment) : value =
   | ExprSelfEvaluating se -> eval_se se
   | ExprVariable v -> eval_v v env
   | ExprQuote q -> ValDatum q
-  | ExprLambda (_, _) -> failwith "LALALALALALA"
-  | ExprProcCall _        ->
+  | ExprLambda (varlst, explst) -> failwith "Sing along with me as I row my lambda!'"
+  | ExprProcCall (exp, explst) ->
      failwith "Sing along with me as I row my boat!'"
   | ExprIf (exp1, exp2, exp3) -> 
     begin match exp1 with
-      | ExprSelfEvaluating(SEBoolean b) when (not b) -> eval exp3 env
-      | _ -> eval exp2 env
+      | ExprSelfEvaluating(SEBoolean b) when not b -> eval exp3 env
+      | _  -> eval exp2 env
     end
   | ExprAssignment (_, _) ->
      failwith "Say something funny, Rower!"

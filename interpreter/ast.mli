@@ -61,6 +61,8 @@ and expression =
       arguments and the given expressions as the body.  Both lists must not be
       empty.  *)
   | ExprLambda of variable list * expression list
+  (* Dan's comments: [x y] [if x > y then let z = 5 else let z = 6; if z = 5 then ...]
+     Dan's comments: lambda (x) (x + 1) [4] *)
   (** A procedure call expression calls the given procedure with the the result
       of evaluating the given argument expressions. *)
   | ExprProcCall of expression * expression list
