@@ -21,6 +21,11 @@ let rec makelst (l: 'a list) (dat: datum) : 'a list =
   | Cons(x, y) -> makelst (x::l) y 
   | _ -> failwith "Unknown expression form"
 
+let lambdahelper acc elm =
+  match elm with
+  | Atom (Identifier id) -> (Identifier.variable_of_identifier id)::acc
+  | _ -> failwith "Invalid variable"
+
 let rec read_expression (input : datum) : expression =
   match input with
   | Atom (Identifier id) when Identifier.is_valid_variable id ->
@@ -35,12 +40,8 @@ let rec read_expression (input : datum) : expression =
       ExprIf (read_expression exp1, read_expression exp2, read_expression exp3)
   | Cons (Atom (Identifier id), Cons(varlst, explst))
     when id = Identifier.identifier_of_string "lambda" ->
-      ExprLambda (
-        (List.fold_left (fun a e -> 
-          match (read_expression e) with
-          ExprVariable x -> 
-          if (read_expression e) = ExprVariable  then (read_expression e)::a else failwith "Unknown variable form") [] (makelst [] varlst)), 
-        (List.fold_left (fun a e -> (read_expression e)::a) [] (makelst [] explst)))    
+      ExprLambda(List.fold_left (fun a e -> lambdahelper a e) [] (makelst [] varlst),
+        List.fold_left (fun a e -> (read_expression e)::a) [] (makelst [] explst))
 
   | Nil -> failwith "Unknown expression form"
   (* quote *)
@@ -79,6 +80,7 @@ let rec initial_environment () : environment =
   Environment.add_binding env
   (Identifier.variable_of_identifier(Identifier.identifier_of_string "course"),
   ref (ValDatum(Atom(Integer 3110))))
+  
 
 (* Evaluates an expression down to a value in a given environment. *)
 (* You may want to add helper functions to make this function more
@@ -90,13 +92,13 @@ and eval (expression : expression) (env : environment) : value =
   | ExprSelfEvaluating se -> eval_se se
   | ExprVariable v -> eval_v v env
   | ExprQuote q -> ValDatum q
-  | ExprLambda (_, _)
+  | ExprLambda (_, _) -> failwith "LALALALALALA"
   | ExprProcCall _        ->
      failwith "Sing along with me as I row my boat!'"
   | ExprIf (exp1, exp2, exp3) -> 
     begin match exp1 with
-      |ExprSelfEvaluating(SEBoolean b) -> if b then eval exp2 env else eval exp3 env
-      |_  -> failwith "Unknown boolean form"
+      | ExprSelfEvaluating(SEBoolean b) when (not b) -> eval exp3 env
+      | _ -> eval exp2 env
     end
   | ExprAssignment (_, _) ->
      failwith "Say something funny, Rower!"
@@ -111,7 +113,7 @@ let eval_toplevel (toplevel : toplevel) (env : environment) :
       value * environment =
   match toplevel with
   | ToplevelExpression expression -> (eval expression env, env)
-  | ToplevelDefinition (_, _)     ->
+  | ToplevelDefinition (_, _) -> 
      failwith "I couldn't have done it without the Rower!"
 
 let rec string_of_value value =
