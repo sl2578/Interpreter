@@ -124,6 +124,9 @@ let cdr (cons: value list) (env : environment) : value =
   | (ValDatum (Cons(_, x)))::t -> ValDatum x
   | _ -> failwith "Invalid arguments to cdr."
 
+(* since eval takes in wrong type, we need our own evaluate for the builtin *)
+let evaluate (cons: value list) (env : environment) : value =
+
 (* This function returns an initial environment with any built-in
    bound variables. *)
 let rec initial_environment () : environment =
