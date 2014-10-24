@@ -41,7 +41,7 @@ let rec read_expression (input : datum) : expression =
       ExprIf (read_expression exp1, read_expression exp2, read_expression exp3)
   (* matches lambdas *)
   | Cons (Atom (Identifier id), Cons(varlst, explst))
-    when id = Identifier.identifier_of_string "lambda" -> (* (lambda (x y) (+ x y)) [Atom (Identifier x); Atom (Identifier y)] *)
+    when id = Identifier.identifier_of_string "lambda" ->
       (* read in each variable datum *)
       let helper acc elm =
         let v = read_expression elm 
@@ -53,9 +53,9 @@ let rec read_expression (input : datum) : expression =
         (* read in each expression *)
         (List.fold_left (fun acc elm -> acc@[(read_expression elm)]) [] (listify explst)))
   (* not tested: matches define *)
-  | Cons (Atom(Identifier id), _)
+(*   | Cons (Atom(Identifier id), _)
     when id = Identifier.identifier_of_string "define" ->
-      failwith "define not allowed as an expression, only at the toplevel"
+      failwith "defdsdsine not allowed as an expression, only at the toplevel" *)
   (* not tested: matches assignment *)
   (* | Cons (Atom (Identifier id), ) *)
   (* matches Nil *)
@@ -108,9 +108,21 @@ let operate (lst : value list) (env: environment) (op: int -> int -> int) (init 
     | _ -> failwith "Invalid arguments to arithmetic function" in
     ValDatum(Atom(Integer (List.fold_left helper init lst)))
 
-let add (lst : value list) (env: environment) : value = operate lst env ( + ) 0
+let add (lst : value list) (env : environment) : value = operate lst env ( + ) 0
 
-let mult (lst : value list) (env: environment) : value = operate lst env ( * ) 1
+let mult (lst : value list) (env : environment) : value = operate lst env ( * ) 1
+
+let car (cons: value list) (env : environment) : value =
+  if List.length cons <> 1 then failwith "Invalid arguments to car."
+  else match cons with
+  | (ValDatum (Cons(x, _)))::t -> ValDatum x
+  | _ -> failwith "Invalid arguments to car."
+
+let cdr (cons: value list) (env : environment) : value =
+  if List.length cons <> 1 then failwith "Invalid arguments to carcdr."
+  else match cons with
+  | (ValDatum (Cons(_, x)))::t -> ValDatum x
+  | _ -> failwith "Invalid arguments to cdr."
 
 (* This function returns an initial environment with any built-in
    bound variables. *)
@@ -121,11 +133,20 @@ let rec initial_environment () : environment =
     (Identifier.variable_of_identifier(Identifier.identifier_of_string "course"),
     ref (ValDatum(Atom(Integer 3110)))) in
   let env = Environment.add_binding env
+    (Identifier.variable_of_identifier(Identifier.identifier_of_string "car"),
+    ref (ValProcedure(ProcBuiltin car))) in
+  let env = Environment.add_binding env
+    (Identifier.variable_of_identifier(Identifier.identifier_of_string "cdr"),
+    ref (ValProcedure(ProcBuiltin cdr))) in
+  let env = Environment.add_binding env
     (Identifier.variable_of_identifier(Identifier.identifier_of_string "+"),
     ref (ValProcedure(ProcBuiltin add))) in
   let env = Environment.add_binding env
     (Identifier.variable_of_identifier(Identifier.identifier_of_string "*"),
     ref (ValProcedure(ProcBuiltin mult))) in
+  let env = Environment.add_binding env
+    (Identifier.variable_of_identifier(Identifier.identifier_of_string "eval"),
+    ref (ValProcedure(ProcBuiltin eval))) in
   env
 
 (* Evaluates an expression down to a value in a given environment. *)
@@ -138,7 +159,7 @@ and eval (expression : expression) (env : environment) : value =
   | ExprSelfEvaluating se -> eval_se se
   | ExprVariable v -> eval_v v env
   | ExprQuote q -> ValDatum q
-  | ExprLambda (_, _) -> failwith "Sing along with me as I row my lambda!'"
+  | ExprLambda (varlst, explst) -> failwith "Sing along with me as I row my lambda!'"
   | ExprProcCall (exp, explst) ->
      failwith "Sing along with me as I row my boat!'"
   | ExprIf (exp1, exp2, exp3) -> 
