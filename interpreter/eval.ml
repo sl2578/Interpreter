@@ -74,7 +74,9 @@ let rec read_expression (input : datum) : expression =
 (* Parses a datum into a toplevel input. *)
 let read_toplevel (input : datum) : toplevel =
   match input with
-
+  | Cons(Atom (Identifier define), Cons(Atom (Identifier var), Cons(exp, Nil)))
+    when define = Identifier.identifier_of_string "define" -> 
+    ToplevelDefinition ((Identifier.variable_of_identifier var), read_expression exp)
   | _ -> ToplevelExpression (read_expression input)
 
 let eval_se (se : self_evaluating) : value =
@@ -130,7 +132,11 @@ let cdr (cons: value list) (env : environment) : value =
   | _ -> failwith "Invalid arguments to cdr."
 
 (* since eval takes in wrong type, we need our own evaluate for the builtin *)
-let evaluate (cons: value list) (env : environment) : value =
+let evaluate (cons: value list) (env : environment) : value = 
+  if List.length cons <> 1 then failwith "Invalid arguments to eval."
+else match cons with 
+| (ValDatum (Cons(exp1, _)))::t -> ValDatum exp1
+| _ -> failwith "a"
 
 (* This function returns an initial environment with any built-in
    bound variables. *)
@@ -154,7 +160,7 @@ let rec initial_environment () : environment =
     ref (ValProcedure(ProcBuiltin mult))) in
   let env = Environment.add_binding env
     (Identifier.variable_of_identifier(Identifier.identifier_of_string "eval"),
-    ref (ValProcedure(ProcBuiltin eval))) in
+    ref (ValProcedure(ProcBuiltin evaluate))) in
   env
 
 (* Evaluates an expression down to a value in a given environment. *)
@@ -168,19 +174,15 @@ and eval (expression : expression) (env : environment) : value =
   | ExprVariable v -> eval_v v env
   | ExprQuote q -> ValDatum q
   | ExprLambda (varlst, explst) -> failwith "Sing along with me as I row my lambda!'"
-  | ExprProcCall (exp, explst) ->
-     failwith "Sing along with me as I row my boat!'"
-  | ExprIf (exp1, exp2, exp3) -> 
-    begin match exp1 with
-      | ExprSelfEvaluating(SEBoolean b) when not b -> eval exp3 env
-      | _  -> eval exp2 env
-    end
+  | ExprProcCall (exp, explst) -> failwith "Sing along with me as I row my boat!'"
+  | ExprIf (ExprSelfEvaluating (SEBoolean b), exp2, exp3) -> 
+    if not b then eval exp3 env else eval exp2 env
   | ExprAssignment (_, _) ->
      failwith "Say something funny, Rower!"
-  | ExprLet (_, _)
-  | ExprLetStar (_, _)
-  | ExprLetRec (_, _)     ->
-     failwith "Ahahaha!  That is classic Rower."
+  | ExprLet (_, _) -> failwith "d"
+  | ExprLetStar (_, _) -> failwith "a"
+  | ExprLetRec (_, _) -> failwith "Ahahaha! That is classic Rower."
+  | _ -> failwith "Not a valid expression"
 
 (* Evaluates a toplevel input down to a value and an output environment in a
    given environment. *)
@@ -188,8 +190,9 @@ let eval_toplevel (toplevel : toplevel) (env : environment) :
       value * environment =
   match toplevel with
   | ToplevelExpression expression -> (eval expression env, env)
-  | ToplevelDefinition (_, _) -> 
-     failwith "I couldn't have done it without the Rower!"
+  | ToplevelDefinition (variable, expression) -> 
+    if not (Environment.is_bound env variable) then (eval expression Environment.empty_environment, Environment.add_binding Environment.empty_environment (variable, ref (eval expression Environment.empty_environment)))
+  else (eval expression env, env)
 
 let rec string_of_value value =
   let rec string_of_datum datum =
