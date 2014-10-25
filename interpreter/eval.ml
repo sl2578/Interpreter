@@ -33,14 +33,18 @@ let lambdahelper acc elm =
 
 let rec read_expression (input : datum) : expression =
   match input with
+  (* matches variables *)
   | Atom (Identifier id) ->
     if Identifier.is_valid_variable id then 
     ExprVariable (Identifier.variable_of_identifier id)
     else failwith "That's not a valid variable"
+  (* matches bools, ints *)
   | Atom (Boolean b) -> ExprSelfEvaluating (SEBoolean b) 
   | Atom (Integer i) -> ExprSelfEvaluating (SEInteger i) 
+  (* matches quote *)
   | Cons (Atom (Identifier id), Cons(dat, Nil)) 
     when id = Identifier.identifier_of_string "quote" ->  ExprQuote dat
+  (* matches if *)
   | Cons (Atom (Identifier id), Cons(exp1, Cons (exp2, Cons (exp3, Nil)))) 
     when id = Identifier.identifier_of_string "if" -> 
       ExprIf (read_expression exp1, read_expression exp2, read_expression exp3)
@@ -79,8 +83,8 @@ let read_toplevel (input : datum) : toplevel =
     ToplevelDefinition ((Identifier.variable_of_identifier var), read_expression exp)
   | _ -> ToplevelExpression (read_expression input)
 
-let eval_se (se : self_evaluating) : value =
 (* Returns: value of the self_evaluating expression *)
+let eval_se (se : self_evaluating) : value =
   match se with
   | SEBoolean b -> ValDatum(Atom(Boolean b))
   | SEInteger i -> ValDatum(Atom(Integer i))
@@ -91,6 +95,29 @@ let eval_v (v : variable) (env: environment) : value =
   if Environment.is_bound env v
   then !(Environment.get_binding env v)
   else failwith "Variable is not bound in this environment."
+
+(* requires: single cons-cell datum
+returns: first element of a cons-cell datum *)
+let car (cons : value list) (env : environment) : value =
+  if List.length cons <> 1 then failwith "Invalid arguments to car."
+  else match cons with
+  | (ValDatum (Cons(x, _)))::t -> ValDatum x
+  | _ -> failwith "Invalid arguments to car."
+
+(* requires: single cons-cell datum
+returns: second element of a cons-cell datum *)
+let cdr (cons: value list) (env : environment) : value =
+  if List.length cons <> 1 then failwith "Invalid arguments to carcdr."
+  else match cons with
+  | (ValDatum (Cons(_, x)))::t -> ValDatum x
+  | _ -> failwith "Invalid arguments to cdr."
+
+(* requires: exactly two datum in value list
+returns: cons-cell of two datum *)
+let cons (dats : value list) (env : environment) : value =
+  match dats with
+  | [ValDatum x; ValDatum y] -> ValDatum(Cons(x, y))
+  | _ -> failwith "Invalid arguments to cons."
 
 (* requires: value list, environment,
 function taking two ints and returns and int and initial value for a fold
@@ -115,21 +142,11 @@ let operate (lst : value list) (env: environment) (op: int -> int -> int) (init 
     | _ -> failwith "Invalid arguments to arithmetic function" in
     ValDatum(Atom(Integer (List.fold_left helper init lst)))
 
+(* returns: sum of values in lst *)
 let add (lst : value list) (env : environment) : value = operate lst env ( + ) 0
 
+(* returns: product of values in lst *)
 let mult (lst : value list) (env : environment) : value = operate lst env ( * ) 1
-
-let car (cons: value list) (env : environment) : value =
-  if List.length cons <> 1 then failwith "Invalid arguments to car."
-  else match cons with
-  | (ValDatum (Cons(x, _)))::t -> ValDatum x
-  | _ -> failwith "Invalid arguments to car."
-
-let cdr (cons: value list) (env : environment) : value =
-  if List.length cons <> 1 then failwith "Invalid arguments to carcdr."
-  else match cons with
-  | (ValDatum (Cons(_, x)))::t -> ValDatum x
-  | _ -> failwith "Invalid arguments to cdr."
 
 (* since eval takes in wrong type, we need our own evaluate for the builtin *)
 let evaluate (cons: value list) (env : environment) : value = 
@@ -152,6 +169,9 @@ let rec initial_environment () : environment =
   let env = Environment.add_binding env
     (Identifier.variable_of_identifier(Identifier.identifier_of_string "cdr"),
     ref (ValProcedure(ProcBuiltin cdr))) in
+  let env = Environment.add_binding env
+    (Identifier.variable_of_identifier(Identifier.identifier_of_string "cons"),
+    ref (ValProcedure(ProcBuiltin cons))) in
   let env = Environment.add_binding env
     (Identifier.variable_of_identifier(Identifier.identifier_of_string "+"),
     ref (ValProcedure(ProcBuiltin add))) in
@@ -190,8 +210,11 @@ let eval_toplevel (toplevel : toplevel) (env : environment) :
       value * environment =
   match toplevel with
   | ToplevelExpression expression -> (eval expression env, env)
-  | ToplevelDefinition (variable, expression) -> 
-    if not (Environment.is_bound env variable) then (eval expression Environment.empty_environment, Environment.add_binding Environment.empty_environment (variable, ref (eval expression Environment.empty_environment)))
+  | ToplevelDefinition (variable, expression) ->
+    (* Variable not already bound to a value *)
+    if not (Environment.is_bound env variable)
+    (* Bind to empty list and evaluate expression in new env *)
+    then (eval expression Environment.empty_environment, Environment.add_binding Environment.empty_environment (variable, ref (eval expression Environment.empty_environment)))
   else (eval expression env, env)
 
 let rec string_of_value value =
