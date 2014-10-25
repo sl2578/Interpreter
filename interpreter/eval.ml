@@ -174,7 +174,9 @@ and eval (expression : expression) (env : environment) : value =
   | ExprVariable v -> eval_v v env
   | ExprQuote q -> ValDatum q
   | ExprLambda (varlst, explst) -> 
-  failwith "Sing along with me as I row my lambda!'"
+    failwith "lambda"
+
+
   | ExprProcCall (exp, explst) -> failwith "Sing along with me as I row my boat!'"
   | ExprIf (ExprSelfEvaluating (SEBoolean b), exp2, exp3) -> 
     if not b then eval exp3 env else eval exp2 env
@@ -191,9 +193,15 @@ let eval_toplevel (toplevel : toplevel) (env : environment) :
       value * environment =
   match toplevel with
   | ToplevelExpression expression -> (eval expression env, env)
-  | ToplevelDefinition (variable, expression) -> 
-    if not (Environment.is_bound env variable) then (eval expression Environment.empty_environment, Environment.add_binding  (Environment.empty_environment) (variable, ref (eval expression Environment.empty_environment)))
-  else (eval expression env, env)
+  | ToplevelDefinition (var, exp) -> 
+   (*  if not (Environment.is_bound env var) then 
+      let new_env = Environment.add_binding  env (var, ref (eval exp Environment.empty_environment)) 
+    in 
+      (ValDatum(Nil), new_env)
+    else *)
+      let new_env = Environment.add_binding  env (var, ref (eval exp Environment.empty_environment)) 
+    in 
+        (ValDatum(Nil), new_env)
 
 let rec string_of_value value =
   let rec string_of_datum datum =
