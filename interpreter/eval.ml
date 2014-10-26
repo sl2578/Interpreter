@@ -133,13 +133,13 @@ let add (lst : value list) (env : environment) : value = operate lst env ( + ) 0
 (* returns: product of values in lst *)
 let mult (lst : value list) (env : environment) : value = operate lst env ( * ) 1
 
-(* since eval takes in wrong type, we need our own evaluate for the builtin *)
-let evaluate (cons: value list) (env : environment) : value = 
-  if List.length cons <> 1 then failwith "Invalid arguments to eval."
-else match cons with 
-| (ValDatum (Cons(exp1, _)))::t -> ValDatum exp1
-| _ -> failwith "a"
-
+(* requires: two arguments that are not procedures
+returns: whether its first argument is structurally equal
+(in the OCaml sense of (=)) to its second argument *)
+let equal (args: value list) (env : environment) : value =
+  match args with
+  | x::y::[] -> ValDatum(Atom(Boolean (x=y)))
+  | _ -> failwith "Invalid arguments to equal?."
 
 (* Returns: value of the self_evaluating expression *)
 let eval_se (se : self_evaluating) : value =
@@ -178,9 +178,16 @@ let rec initial_environment () : environment =
     (Identifier.variable_of_identifier(Identifier.identifier_of_string "*"),
     ref (ValProcedure(ProcBuiltin mult))) in
   let env = Environment.add_binding env
+    (Identifier.variable_of_identifier(Identifier.identifier_of_string "equal?"),
+    ref (ValProcedure(ProcBuiltin equal))) in
+  (* since eval takes in wrong type, we need our own evaluate for the builtin *)
+  let evaluate (arg : value list) (env : environment) : value =
+    match arg with
+    | (ValDatum x)::[] -> eval (read_expression x) env
+    | _ -> failwith "Invalid arguments to eval." in
+  Environment.add_binding env
     (Identifier.variable_of_identifier(Identifier.identifier_of_string "eval"),
-    ref (ValProcedure(ProcBuiltin evaluate))) in
-  env
+    ref (ValProcedure(ProcBuiltin evaluate)))
 
 (* Evaluates an expression down to a value in a given environment. *)
 (* You may want to add helper functions to make this function more
@@ -192,8 +199,25 @@ and eval (expression : expression) (env : environment) : value =
   | ExprSelfEvaluating se -> eval_se se
   | ExprVariable v -> eval_v v env
   | ExprQuote q -> ValDatum q
-  | ExprLambda (varlst, explst) -> ValProcedure (ProcLambda (varlst, env, explst))
-  | ExprProcCall (exp, explst) -> failwith "Sing along with me as I row my boat!'"
+  | ExprLambda (varlst, explst) ->
+      ValProcedure (ProcLambda (varlst, env, explst))
+  | ExprProcCall (exp, inputs) ->
+    begin match (eval exp env) with
+    (* match if exp evaluates to type ProcLambda, a closure? *)
+    | ValProcedure (ProcLambda (varlst, env2, explst)) ->
+      (* check right num variables *)
+      if List.length varlst <> List.length inputs
+      then failwith "Invalid number of arguments to procedure."
+      else
+        let old_env = env2 in 
+        let helper acc var input =
+          Environment.add_binding acc (var, ref (eval input old_env)) in
+        (* evaluate each input and bind to corresponding varlst, add to env *)
+        let new_env = List.fold_left2 helper env2 varlst inputs in
+        (* evaluate the procedure with new bindings *)
+        List.fold_left (fun acc exp -> eval exp new_env) (ValDatum Nil) explst
+    | _ -> failwith "Procedure does not evaluate to a closure."
+    end
   | ExprIf (ExprSelfEvaluating (SEBoolean b), exp2, exp3) -> 
       if not b then eval exp3 env else eval exp2 env
   | ExprAssignment (var, exp) ->
