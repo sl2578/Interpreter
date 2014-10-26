@@ -26,8 +26,20 @@ let listify (dat : datum) : 'a list =
     | _ -> failwith "Not a list of Cons!" in
   helper [] dat
 
+
+
 let rec read_expression (input : datum) : expression =
-  match input with
+  let letbinding (letblst: datum) =
+    let rec helper (acc: let_binding list) (dat: datum) =
+    match dat with
+    | Nil -> acc
+    | Cons(Cons(Atom(Identifier x), Cons(y, Nil)), z) -> 
+      if Identifier.is_valid_variable x then 
+        helper ((Identifier.variable_of_identifier x, read_expression y)::acc) z
+      else failwith "Invalid let binding"
+    | _ -> failwith "Invalid let binding"
+    in helper [] letblst
+  in match input with
   (* matches variables *)
   | Atom (Identifier id) ->
     if Identifier.is_valid_variable id then 
@@ -56,16 +68,29 @@ let rec read_expression (input : datum) : expression =
         (List.fold_left (fun acc elm -> helper acc elm) [] (listify varlst)),
         (* read in each expression *)
         (List.fold_left (fun acc elm -> acc@[(read_expression elm)]) [] (listify explst)))
-  (* not tested: matches define *)
+  (* matches define *)
   | Cons (Atom(Identifier id), _)
     when id = Identifier.identifier_of_string "define" ->
       failwith "Define not allowed as an expression, only at the toplevel"
+  (* matches set! *)
   | Cons(Atom (Identifier id), Cons(Atom (Identifier var), Cons(exp, Nil)))
     when id = Identifier.identifier_of_string "set!" ->
       ExprAssignment ((Identifier.variable_of_identifier var), read_expression exp)
-  (* not tested: matches assignment *)
-  (* | Cons (Atom (Identifier id), ) *)
-  (* matches Nil *)
+  (* matches let* *)
+  | Cons(Atom (Identifier id), Cons(letblst, explst)) 
+    when id = Identifier.identifier_of_string "let*" ->
+     ExprLetStar (letbinding letblst, 
+        (List.fold_left (fun acc elm -> acc@[(read_expression elm)]) [] (listify explst)))
+  (* matches let *)
+  | Cons(Atom (Identifier id), Cons(letblst, explst)) 
+    when id = Identifier.identifier_of_string "let" ->
+     ExprLetStar (letbinding letblst, 
+        (List.fold_left (fun acc elm -> acc@[(read_expression elm)]) [] (listify explst)))
+  (* matches letrec *)
+  | Cons(Atom (Identifier id), Cons(letblst, explst)) 
+    when id = Identifier.identifier_of_string "letrec" ->
+     ExprLetStar (letbinding letblst, 
+        (List.fold_left (fun acc elm -> acc@[(read_expression elm)]) [] (listify explst)))
   | Nil -> failwith "NILLLLLLLLL Unknown expression form"
   (* matches procedures *)
   | Cons (x, explst) ->
@@ -154,6 +179,17 @@ let eval_v (v : variable) (env: environment) : value =
   then !(Environment.get_binding env v)
   else failwith "Variable is not bound in this environment."
 
+let rec has_dups (lst: 'a list) : bool =
+  match lst with
+  | [] -> false
+  | h::t ->
+    if List.mem h t then true
+  else has_dups t
+
+let has_variable_repeat (lst: let_binding list) : bool =
+  let varlst = List.fold_left (fun a (v, e) -> v::a) [] lst in
+  has_dups varlst
+
 (* This function returns an initial environment with any built-in
    bound variables. *)
 let rec initial_environment () : environment =
@@ -224,9 +260,22 @@ and eval (expression : expression) (env : environment) : value =
       if (Environment.is_bound env var) then begin
         (Environment.get_binding env var) := (eval exp env); ValDatum(Nil) end
       else failwith ("Variable is not bounded in this environment")
-  | ExprLet (_, _) -> failwith "d"
-  | ExprLetStar (_, _) -> failwith "a"
-  | ExprLetRec (_, _) -> failwith "Ahahaha! That is classic Rower."
+  | ExprLet (letblst, explst) -> 
+    if has_variable_repeat letblst then failwith "Variables must all have distinct names"
+  else 
+    let new_env = List.fold_left (fun acc (var, exp) -> Environment.add_binding acc (var, ref (eval exp env))) env letblst in
+    List.fold_left (fun acc exp -> eval exp new_env) (ValDatum Nil) explst
+  | ExprLetStar (letblst, explst) -> 
+  if has_variable_repeat letblst then failwith "Variables must all have distinct names"
+  else 
+    let new_env = List.fold_left (fun acc (var, exp) -> Environment.add_binding acc (var, ref (eval exp acc))) env letblst in
+    List.fold_left (fun acc exp -> eval exp new_env) (ValDatum Nil) explst
+  | ExprLetRec (letblst, explst) -> 
+  if has_variable_repeat letblst then failwith "Variables must all have distinct names"
+  else 
+    let env_part1 = List.fold_left (fun acc (var, exp) -> Environment.add_binding acc (var, ref (eval exp env))) env letblst in
+    let env_part2 = List.fold_left (fun acc (var, exp) -> (Environment.get_binding env_part1 var) := (eval exp env_part1); env_part1) env_part1 letblst in
+     List.fold_left (fun acc exp -> eval exp env_part2) (ValDatum Nil) explst
   | _ -> failwith "Not a valid expression"
 
 (* Evaluates a toplevel input down to a value and an output environment in a
