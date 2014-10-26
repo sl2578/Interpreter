@@ -81,19 +81,6 @@ let read_toplevel (input : datum) : toplevel =
     ToplevelDefinition ((Identifier.variable_of_identifier var), read_expression exp)
   | _ -> ToplevelExpression (read_expression input)
 
-(* Returns: value of the self_evaluating expression *)
-let eval_se (se : self_evaluating) : value =
-  match se with
-  | SEBoolean b -> ValDatum(Atom(Boolean b))
-  | SEInteger i -> ValDatum(Atom(Integer i))
-
-(* Requires: a valid variable of identifier
-Returns: value of the variable in the environment *)
-let eval_v (v : variable) (env: environment) : value =
-  if Environment.is_bound env v
-  then !(Environment.get_binding env v)
-  else failwith "Variable is not bound in this environment."
-
 (* requires: single cons-cell datum
 returns: first element of a cons-cell datum *)
 let car (cons : value list) (env : environment) : value =
@@ -153,6 +140,20 @@ else match cons with
 | (ValDatum (Cons(exp1, _)))::t -> ValDatum exp1
 | _ -> failwith "a"
 
+
+(* Returns: value of the self_evaluating expression *)
+let eval_se (se : self_evaluating) : value =
+  match se with
+  | SEBoolean b -> ValDatum(Atom(Boolean b))
+  | SEInteger i -> ValDatum(Atom(Integer i))
+
+(* Requires: a valid variable of identifier
+Returns: value of the variable in the environment *)
+let eval_v (v : variable) (env: environment) : value =
+  if Environment.is_bound env v
+  then !(Environment.get_binding env v)
+  else failwith "Variable is not bound in this environment."
+
 (* This function returns an initial environment with any built-in
    bound variables. *)
 let rec initial_environment () : environment =
@@ -191,8 +192,7 @@ and eval (expression : expression) (env : environment) : value =
   | ExprSelfEvaluating se -> eval_se se
   | ExprVariable v -> eval_v v env
   | ExprQuote q -> ValDatum q
-  | ExprLambda (varlst, explst) ->    
-    failwith "lambda"
+  | ExprLambda (varlst, explst) -> ValProcedure (ProcLambda (varlst, env, explst))
   | ExprProcCall (exp, explst) -> failwith "Sing along with me as I row my boat!'"
   | ExprIf (ExprSelfEvaluating (SEBoolean b), exp2, exp3) -> 
       if not b then eval exp3 env else eval exp2 env
