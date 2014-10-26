@@ -135,6 +135,8 @@ zardoz> (f 0)
 2
 zardoz> (let ((x 0) (y 1)) (+ x y))
 
+Cons(Atom(Identifier "let"), 
+
 1
 zardoz> x
 
@@ -145,10 +147,7 @@ zardoz> (let* ((x 0) (y (+ 1 x))) (+ x y))
 zardoz> (let ((x 0) (y (+ 1 x))) (+ x y))
 q
 Failure("x is not bound in this environment.")
-zardoz> (letrec ((factorial (lambda (x)
-                              (if (equal? x 0)
-                                  1
-                                (* x (factorial (+ x -1)))))))
+zardoz> (letrec ((factorial l)
           (factorial 5))
 
 120
@@ -182,7 +181,7 @@ zardoz> ;; The quote construct might seem a little bit mysterious, so here's an
         ;; variable that the user passes in to the empty list:
         (define nihilize
           (lambda (symbol)
-            (eval (cons 'set! (cons symbol (cons ''() '()))))))
+            (eval (cons 'set! (cons symbol (cons ''() '()))) )))
         ;; Note that we need to double quote the empty list so it's not
         ;; evaluated during the set!.
 

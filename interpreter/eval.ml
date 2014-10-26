@@ -26,11 +26,6 @@ let listify (dat : datum) : 'a list =
     | _ -> failwith "Not a list of Cons!" in
   helper [] dat
 
-let lambdahelper acc elm =
-  match elm with
-  | Atom (Identifier id) -> (Identifier.variable_of_identifier id)::acc
-  | _ -> failwith "Invalid variable"
-
 let rec read_expression (input : datum) : expression =
   match input with
   (* matches variables *)
@@ -58,13 +53,16 @@ let rec read_expression (input : datum) : expression =
           | ExprVariable x -> acc@[x]
           | _ -> failwith "Invalid lambda variable"
         in ExprLambda (
-        (List.fold_left helper [] (listify varlst)),
+        (List.fold_left (fun acc elm -> helper acc elm) [] (listify varlst)),
         (* read in each expression *)
         (List.fold_left (fun acc elm -> acc@[(read_expression elm)]) [] (listify explst)))
   (* not tested: matches define *)
-(*   | Cons (Atom(Identifier id), _)
+  | Cons (Atom(Identifier id), _)
     when id = Identifier.identifier_of_string "define" ->
-      failwith "defdsdsine not allowed as an expression, only at the toplevel" *)
+      failwith "Define not allowed as an expression, only at the toplevel"
+  | Cons(Atom (Identifier id), Cons(Atom (Identifier var), Cons(exp, Nil)))
+    when id = Identifier.identifier_of_string "set!" ->
+      ExprAssignment ((Identifier.variable_of_identifier var), read_expression exp)
   (* not tested: matches assignment *)
   (* | Cons (Atom (Identifier id), ) *)
   (* matches Nil *)
@@ -193,15 +191,15 @@ and eval (expression : expression) (env : environment) : value =
   | ExprSelfEvaluating se -> eval_se se
   | ExprVariable v -> eval_v v env
   | ExprQuote q -> ValDatum q
-  | ExprLambda (varlst, explst) -> 
+  | ExprLambda (varlst, explst) ->    
     failwith "lambda"
-
-
   | ExprProcCall (exp, explst) -> failwith "Sing along with me as I row my boat!'"
   | ExprIf (ExprSelfEvaluating (SEBoolean b), exp2, exp3) -> 
-    if not b then eval exp3 env else eval exp2 env
-  | ExprAssignment (_, _) ->
-     failwith "Say something funny, Rower!"
+      if not b then eval exp3 env else eval exp2 env
+  | ExprAssignment (var, exp) ->
+      if (Environment.is_bound env var) then begin
+        (Environment.get_binding env var) := (eval exp env); ValDatum(Nil) end
+      else failwith ("Variable is not bounded in this environment")
   | ExprLet (_, _) -> failwith "d"
   | ExprLetStar (_, _) -> failwith "a"
   | ExprLetRec (_, _) -> failwith "Ahahaha! That is classic Rower."
@@ -213,24 +211,14 @@ let eval_toplevel (toplevel : toplevel) (env : environment) :
       value * environment =
   match toplevel with
   | ToplevelExpression expression -> (eval expression env, env)
-<<<<<<< HEAD
   | ToplevelDefinition (var, exp) -> 
-   (*  if not (Environment.is_bound env var) then 
+    if not (Environment.is_bound env var) then 
       let new_env = Environment.add_binding  env (var, ref (eval exp Environment.empty_environment)) 
     in 
       (ValDatum(Nil), new_env)
-    else *)
-      let new_env = Environment.add_binding  env (var, ref (eval exp Environment.empty_environment)) 
-    in 
-        (ValDatum(Nil), new_env)
-=======
-  | ToplevelDefinition (variable, expression) ->
-    (* Variable not already bound to a value *)
-    if not (Environment.is_bound env variable)
-    (* Bind to empty list and evaluate expression in new env *)
-    then (eval expression Environment.empty_environment, Environment.add_binding Environment.empty_environment (variable, ref (eval expression Environment.empty_environment)))
-  else (eval expression env, env)
->>>>>>> a8f853dbb3d0cda210a75eae47f20a5e32e6b5bf
+    else
+      begin ((Environment.get_binding env var) := (eval exp Environment.empty_environment)); 
+      (ValDatum(Nil), env) end
 
 let rec string_of_value value =
   let rec string_of_datum datum =
