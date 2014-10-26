@@ -200,8 +200,10 @@ and eval (expression : expression) (env : environment) : value =
   | ExprProcCall (exp, explst) -> failwith "Sing along with me as I row my boat!'"
   | ExprIf (ExprSelfEvaluating (SEBoolean b), exp2, exp3) -> 
     if not b then eval exp3 env else eval exp2 env
-  | ExprAssignment (_, _) ->
-     failwith "Say something funny, Rower!"
+  | ExprAssignment (var, exp) ->
+    if (Environment.is_bound env var)
+    then (Environment.get_binding env var) := (eval exp env); ValDatum(Nil)
+    else failwith ("Variable is not bounded in this environment.")
   | ExprLet (_, _) -> failwith "d"
   | ExprLetStar (_, _) -> failwith "a"
   | ExprLetRec (_, _) -> failwith "Ahahaha! That is classic Rower."
@@ -213,7 +215,6 @@ let eval_toplevel (toplevel : toplevel) (env : environment) :
       value * environment =
   match toplevel with
   | ToplevelExpression expression -> (eval expression env, env)
-<<<<<<< HEAD
   | ToplevelDefinition (var, exp) -> 
    (*  if not (Environment.is_bound env var) then 
       let new_env = Environment.add_binding  env (var, ref (eval exp Environment.empty_environment)) 
@@ -223,14 +224,6 @@ let eval_toplevel (toplevel : toplevel) (env : environment) :
       let new_env = Environment.add_binding  env (var, ref (eval exp Environment.empty_environment)) 
     in 
         (ValDatum(Nil), new_env)
-=======
-  | ToplevelDefinition (variable, expression) ->
-    (* Variable not already bound to a value *)
-    if not (Environment.is_bound env variable)
-    (* Bind to empty list and evaluate expression in new env *)
-    then (eval expression Environment.empty_environment, Environment.add_binding Environment.empty_environment (variable, ref (eval expression Environment.empty_environment)))
-  else (eval expression env, env)
->>>>>>> a8f853dbb3d0cda210a75eae47f20a5e32e6b5bf
 
 let rec string_of_value value =
   let rec string_of_datum datum =

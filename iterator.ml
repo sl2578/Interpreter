@@ -85,13 +85,15 @@ module TakeIterator : TAKE_ITERATOR = functor (I : ITERATOR) -> struct
   type 'a t = ('a I.t * int) ref
   exception NoResult
 
-  let has_next (i: 'a t) = I.has_next (fst !i) && (snd !i) <> 0
+  let has_next (i: 'a t) : bool = I.has_next (fst !i) && (snd !i) <> 0
 
-  let next (i: 'a t) =
+  let next (i: 'a t) : 'a =
     match !i with
     | iter, 0 -> raise NoResult
     | iter, n -> let res = I.next iter in i:= (iter, n-1); res
 
+  (* requires: n nonnegative
+  returns: iterator that yields first n results of iterator*)
   let create (n: int) (iter: 'a I.t) : 'a t = ref (iter, n)
 end
 
@@ -134,19 +136,22 @@ module RangeIterator : RANGE_ITERATOR = functor (I : ITERATOR) -> struct
   (* tuple of iterator and int, where int is the n number
   of times iterator can still return a result *)
   type 'a t = ('a I.t * int) ref
-  raise NoResult
+  exception NoResult
 
-module TakeIter : TakeIterator = functor (I:ITERATOR) -> struct
-  let has_next (i: 'a t) = I.has_next i
+  let has_next (i: 'a t) : bool = I.has_next (fst !i) && (snd !i) <> 0
 
-  let next (i: 'a t) = I.next i
-end
+  let next (i: 'a t) : 'a =
+    match !i with
+    | iter, 0 -> raise NoResult
+    | iter, n -> let res = I.next iter in i:= (iter, n-1); res
 
-module Utils : IteratorUtilsFn = functor (I:ITERATOR) -> struct
+  module Utils = IteratorUtilsFn (I)
+  (* requires: n and m not negative
+  returns: iterator that yields the nth to (including) the mth element
+  or NoResult if n > m *)
   let create (n: int) (m: int) (iter: 'a I.t) : 'a t =
-    I.advance n iter;
-    (* iter is now at nth element,
-    with m-n more elements left to iter through *)
-    ref (iter, m-n)
+    Utils.advance (n-1) iter;
+    (* iter now at nth elm, with m-n more elements left to iter through *)
+    ref (iter, (max 0 (m-n+1)))
 end
 
